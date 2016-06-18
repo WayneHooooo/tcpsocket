@@ -1,0 +1,241 @@
+package com.example.wayneho.sssssss;
+
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
+
+import android.app.Activity;
+import android.content.Context;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
+import android.text.method.ScrollingMovementMethod;
+import android.view.View;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.TextView;
+
+public class MainActivity extends Activity {
+    public static final int CONNENT = 0;
+    public static final int REPLY = 1;
+    public static final int SENT =2;
+
+    public EditText command;
+    private TextView log;
+    public Button connect;
+    private Button send;
+    private Button clean;
+    private String logMsg;
+    public Socket socket;
+    private BufferedWriter writer;
+    private InetSocketAddress isa = null;
+    public Handler mHandler = new Handler() {
+        public void handleMessage(Message msg) {
+            switch (msg.what) {
+
+                case CONNENT:
+                    logMsg = "Server Connented\n";
+                    log.setText(logMsg);
+                    connect.setEnabled(false);
+                    send.setEnabled(true);
+                    clean.setEnabled(true);
+                    break;
+
+                case REPLY:
+                    log.setText(logMsg);
+                    log.setScrollContainer(true);
+                    break;
+
+                default:
+                    break;
+
+                // case SENT:
+            }
+        }
+    };
+    Context mContext;
+    private tcpClient tcp;
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        //mContext = this;
+        command = (EditText) this.findViewById(R.id.command);
+        log = (TextView) this.findViewById(R.id.log);
+        send = (Button) this.findViewById(R.id.send);
+        connect = (Button) this.findViewById(R.id.con);
+        clean = (Button) this.findViewById(R.id.clean);
+        //setonclick();
+        init();
+
+
+    }
+
+    private void init() {
+        log.setMovementMethod(ScrollingMovementMethod.getInstance());
+        logMsg = log.getText().toString();
+        send.setEnabled(false);
+        clean.setEnabled(false);
+    }
+    public void connect(View view){//click the connect button
+        tcp = new tcpClient();
+        tcp.start();
+    }
+
+    class tcpClient extends Thread {
+        String commandString;
+        public tcpClient() {
+            commandString = "admin,admin";
+        }
+        public tcpClient(String command) {
+            commandString = command;
+        }
+
+        public void run() {
+            String recv;
+            try {
+                connecttoserver();
+                //向服务器发送命令
+                SendMsg(socket, commandString);
+                //等待，接收来自服务器返回的消息
+                recv = ReceiveMsg(socket);
+                if (recv != null) {
+                    logMsg += recv;
+                    // close BufferedWriter and socket
+                    writer.close();
+                    Message msg = new Message();
+                    msg.what = REPLY;
+                    mHandler.sendMessage(msg);
+                }
+            } catch (UnknownHostException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    //在向服务器发送消息之前，必须先链接到服务器。
+    public void connecttoserver() throws UnknownHostException, IOException {
+        socket = new Socket("192.168.191.2", 8877);
+        //判断是否链接成功
+        if (socket.isConnected()) {
+            Message msg = new Message();
+            msg.what = CONNENT;
+            mHandler.sendMessage(msg);
+        }
+    }
+
+
+
+    public void send(View view){
+        try{
+            SendMsg(socket,command.getText().toString());
+//            String recv;
+//            recv = ReceiveMsg(socket);
+//                if (recv != null) {
+//                    logMsg += recv;
+//
+//                    writer.close();
+//                    Message msg = new Message();
+//                    msg.what = REPLY;
+//                    mHandler.sendMessage(msg);
+//                }
+        }catch (UnknownHostException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+    }
+
+    public void clean(View view){
+
+        command.setText("");
+        log.setText("");
+        try{
+            SendMsg(socket,"close");
+//            String recv;
+//            recv = ReceiveMsg(socket);
+//                if (recv != null) {
+//                    logMsg += recv;
+//
+//                    writer.close();
+//                    Message msg = new Message();
+//                    msg.what = REPLY;
+//                    mHandler.sendMessage(msg);
+//                }
+            socket.close();
+        }catch (UnknownHostException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        connect.setEnabled(true);
+        send.setEnabled(false);
+        clean.setEnabled(false);
+
+}
+
+    //向服务器发送信息
+    private void SendMsg(Socket socket, String msg) throws IOException {
+        writer = new BufferedWriter(new OutputStreamWriter(
+                socket.getOutputStream()));
+        writer.write(msg);
+        writer.flush();
+    }
+    // 接收服务器信息
+    private String ReceiveMsg(Socket socket) throws IOException {
+        BufferedReader reader = new BufferedReader(new InputStreamReader(
+                socket.getInputStream()));
+        String line;
+        String txt = "";
+        while ((line = reader.readLine()) != null) {
+            txt += line;
+//            if ((line == "\n") != false) {//遇到eof时就结束接收
+//                break;
+//            }
+        }
+        reader.close();
+        return txt;
+    }
+
+//    class tcpClient extends Thread {
+//        String commandString;
+//        public tcpClient() {
+//            commandString = "ls";
+//        }
+//        public tcpClient(String command) {
+//            commandString = command;
+//        }
+//        public void run() {
+//            String recv;
+//            try {
+//                connecttoserver();
+//                //向服务器发送命令
+//                SendMsg(socket, commandString);
+//                //等待，接收来自服务器返回的消息
+//                recv = ReceiveMsg(socket);
+//                if (recv != null) {
+//                    logMsg += recv;
+//                    // close BufferedWriter and socket
+//                    writer.close();
+//                    socket.close();
+//                    // 将服务器返回的消息显示出来
+//                    Message msg = new Message();
+//                    msg.what = REPLY;
+//                    mHandler.sendMessage(msg);
+//                }
+//            } catch (UnknownHostException e) {
+//                e.printStackTrace();
+//            } catch (IOException e) {
+//                e.printStackTrace();
+//            }
+//        }
+//    }
+
+}
