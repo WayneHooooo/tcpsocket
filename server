@@ -1,0 +1,41 @@
+# -*- coding: utf-8 -*-
+import socket
+import commands
+Host = '192.168.191.2'
+Port = 8877
+
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+s.bind((Host,Port))
+s.listen(1)
+print 'waiting for connection'
+while 1:
+    		conn,addr = s.accept()
+    		print 'connected by', addr
+    		state =1
+    		data = conn.recv(1024)
+    		if not data:
+    							break
+    		else :
+    					print data
+    					username,password = data.split(',')
+    					print username
+    					print password
+    					if (cmp(username,'admin') or cmp(password,'admin')):
+    									print 'wrong password'
+    									conn.sendall('wrong')
+    					else:
+    									print 'correct'
+    									conn.sendall('correct')
+    									while (state!=0):
+    													print 'waiting for msg'
+    													data = conn.recv(1024)
+    													if not data:
+    																		break
+    													elif cmp(data,'close')==0:
+    																		conn.close()
+    																		print 'socket close'
+    																		state=0
+    													else:
+    																		print data
+    																		conn.sendall('received')
